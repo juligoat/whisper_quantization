@@ -17,7 +17,8 @@ class ModelProfiler:
     def __init__(self, model_name: str):
         self.model_name = model_name
         self.metrics_history = []
-        
+        self.size_details = {}  # Store detailed size information
+    
     def measure_model_size(self, model: torch.nn.Module) -> float:
         """Measure model size in MB"""
         param_size = 0
@@ -29,28 +30,78 @@ class ModelProfiler:
         size_mb = (param_size + buffer_size) / 1024**2
         return size_mb
     
-    def get_memory_usage(self) -> float:
-        """Get current memory usage in MB"""
-        return psutil.Process(os.getpid()).memory_info().rss / 1024**2
+    def get_detailed_model_size(self, model: torch.nn.Module) -> Dict[str, Any]:
+        """Get detailed size information about the model components"""
+        param_size = 0
+        buffer_size = 0
+        layer_info = {}
+        
+        # Parameters
+        total_params = 0
+        for name, param in model.named_parameters():
+            num_params = param.nelement()
+            total_params += num_params
+            size = num_params * param.element_size()
+            param_size += size
+            layer_info[name] = {
+                'size_mb': size / 1024**2,
+                'num_params': num_params,
+                'type': 'parameter'
+            }
+        
+        # Buffers
+        for name, buffer in model.named_buffers():
+            size = buffer.nelement() * buffer.element_size()
+            buffer_size += size
+            layer_info[name] = {
+                'size_mb': size / 1024**2,
+                'num_elements': buffer.nelement(),
+                'type': 'buffer'
+            }
+        
+        total_size = (param_size + buffer_size) / 1024**2
+        
+        self.size_details = {
+            'total_size_mb': total_size,
+            'param_size_mb': param_size / 1024**2,
+            'buffer_size_mb': buffer_size / 1024**2,
+            'total_params': total_params,
+            'layer_info': layer_info
+        }
+        
+        return self.size_details
     
-    @staticmethod
-    def calculate_error_metrics(reference: str, hypothesis: str) -> Tuple[float, float]:
-        """Calculate WER and CER"""
-        return wer(reference, hypothesis), cer(reference, hypothesis)
-    
-    def log_metrics(self, metrics: Dict[str, Any]):
-        """Log metrics with timestamp"""
-        metrics['timestamp'] = time.time()
-        metrics['model_name'] = self.model_name
-        self.metrics_history.append(metrics)
-    
-    def get_metrics_df(self) -> pd.DataFrame:
-        """Get metrics as DataFrame"""
-        return pd.DataFrame(self.metrics_history)
-    
-    def save_metrics(self, filepath: str):
-        """Save metrics to CSV"""
-        self.get_metrics_df().to_csv(filepath, index=False)
+    def print_size_analysis(self):
+        """Print detailed size analysis"""
+        if not self.size_details:
+            print("No size analysis available. Run get_detailed_model_size first.")
+            return
+        
+        print(f"Model Size Analysis for {self.model_name}")
+        print("-" * 50)
+        print(f"Total Model Size: {self.size_details['total_size_mb']:.2f} MB")
+        print(f"Parameter Size: {self.size_details['param_size_mb']:.2f} MB")
+        print(f"Buffer Size: {self.size_details['buffer_size_mb']:.2f} MB")
+        print(f"Total Parameters: {self.size_details['total_params']:,}")
+        print("\nLayer-by-Layer Breakdown:")
+        print("-" * 50)
+        
+        # Sort layers by size
+        sorted_layers = sorted(
+            self.size_details['layer_info'].items(),
+            key=lambda x: x[1]['size_mb'],
+            reverse=True
+        )
+        
+        for name, info in sorted_layers:
+            if info['type'] == 'parameter':
+                print(f"{name}:")
+                print(f"  Size: {info['size_mb']:.2f} MB")
+                print(f"  Parameters: {info['num_params']:,}")
+            else:
+                print(f"Buffer {name}:")
+                print(f"  Size: {info['size_mb']:.2f} MB")
+            print("-" * 30)
 
 class VisualizationUtils:
     """Class for visualization utilities"""
@@ -58,8 +109,8 @@ class VisualizationUtils:
     @staticmethod
     def set_style():
         """Set default style for plots"""
-        plt.style.use('seaborn')
-        sns.set_palette('deep')
+        sns.set_theme()  # Use seaborn's default theme
+        plt.style.use('seaborn-v0_8')  # Use seaborn's style in matplotlib
     
     @staticmethod
     def plot_error_distributions(results_df: pd.DataFrame, save_path: str = None):

@@ -129,8 +129,6 @@ wcwidth==0.2.13
 webcolors==24.11.1
 webencodings==0.5.1
 websocket-client==1.8.0
-# Editable Git install with no remote (whisper_quantization==0.1)
--e /Users/julian/Documents/ITU/whisper_quantization
 widgetsnbextension==4.0.13
 xxhash==3.5.0
 yarl==1.18.0
