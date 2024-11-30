@@ -1,0 +1,9 @@
+README.md
+setup.py
+src/__init__.py
+src/utils.py
+whisper_quantization.egg-info/PKG-INFO
+whisper_quantization.egg-info/SOURCES.txt
+whisper_quantization.egg-info/dependency_links.txt
+whisper_quantization.egg-info/requires.txt
+whisper_quantization.egg-info/top_level.txt
